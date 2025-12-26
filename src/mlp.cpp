@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <immintrin.h>
 #include <stdint.h>
-
+#include <string>
 
 
 #define SIZE_CLASSES 10
@@ -1235,26 +1235,20 @@ int main() {
     // read input data
     InputData data_training, data_test, data_mini_batch = {0};
 
-    const char * deep_path = getenv("DEEP_PATH");
-    const char * models_path = concatStrings(deep_path, "models/");
+    std::string deep_path_str = std::getenv("DEEP_PATH");
+    std::string models_path = deep_path_str + "models/";
 
-    const char * training_images_path = concatStrings(deep_path, "data/train-images.idx3-ubyte");
-    const char *training_labels_path = concatStrings(deep_path, "data/train-labels.idx1-ubyte");
-    read_mnist_images(training_images_path, &data_training);
-    read_mnist_labels(training_labels_path, &data_training.labels, &data_training.nImages);
+    std::string training_images_path = deep_path_str + "data/train-images.idx3-ubyte";
+    std::string training_labels_path = deep_path_str + "data/train-labels.idx1-ubyte";
+    read_mnist_images(training_images_path.c_str(), &data_training);
+    read_mnist_labels(training_labels_path.c_str(), &data_training.labels, &data_training.nImages);
     printf("Number of training images: %d\n", data_training.nImages);
 
-    free((char *)training_images_path);
-    free((char *)training_labels_path);
-
-    const char *test_images_path = concatStrings(deep_path, "data/t10k-images.idx3-ubyte");
-    const char *test_labels_path = concatStrings(deep_path, "data/t10k-labels.idx1-ubyte");
-    read_mnist_images(test_images_path, &data_test);
-    read_mnist_labels(test_labels_path, &data_test.labels, &data_test.nImages);
+    std::string test_images_path = deep_path_str + "data/t10k-images.idx3-ubyte";
+    std::string test_labels_path = deep_path_str + "data/t10k-labels.idx1-ubyte";
+    read_mnist_images(test_images_path.c_str(), &data_test);
+    read_mnist_labels(test_labels_path.c_str(), &data_test.labels, &data_test.nImages);
     printf("Number of test images: %d\n", data_test.nImages);
-
-    free((char *)test_images_path);
-    free((char *)test_labels_path);
 
     // create model
     Model model = {0};
@@ -1275,7 +1269,7 @@ int main() {
     allocate_parameters_memory(&model);
     // load any persisted model parameters from models directory
     // otherwise initialize model parameters
-    if (load_model(&model, models_path)) {
+    if (load_model(&model, models_path.c_str())) {
         printf("Model loaded successfully\n");
     } else {
         printf("No model found, training from scratch\n");
@@ -1325,7 +1319,7 @@ int main() {
     free_activations(&activations);
 
     // save model
-    save_model(&model, models_path);
+    save_model(&model, models_path.c_str());
 
     // test loss after training
     initialise_activations(&activations, &model, &data_test);
