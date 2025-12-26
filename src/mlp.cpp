@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <immintrin.h>
+#include <stdint.h>
 
 
 
@@ -37,7 +38,7 @@ typedef struct Layer{
     size_t size_inputs, size_neurons;
     void (*activation_forward)(struct Layer* layer,  size_t size_batch);
     void (*activation_backward)(struct Layer* layer, unsigned char * labels, size_t size_batch);
-    float (*generate_number)();
+    float (*generate_number)(size_t, size_t);
 } Layer;
 
 typedef struct {
@@ -62,7 +63,7 @@ typedef struct {
 // Function to concatenate two strings and return the new string
 char *concatStrings(const char *str1, const char *str2) {
     // Allocate memory for the new string
-    char *newStr = malloc(strlen(str1) + strlen(str2) + 1);  // +1 for null terminator
+    char *newStr = (char *)malloc(strlen(str1) + strlen(str2) + 1);  // +1 for null terminator
     if (newStr == NULL) {
         printf("Memory allocation failed\n");
         return NULL;  // Return NULL if memory allocation fails
@@ -487,9 +488,9 @@ void simd_matmul_forward(Layer * layer, size_t size_batch){
     double time_spent;
     begin = clock();
 
-    float *A = calloc(size_batch * layer->size_inputs, sizeof(float));
-    float *B = calloc(layer->size_inputs * layer->size_neurons, sizeof(float));
-    float *C = calloc(size_batch * layer->size_neurons, sizeof(float));
+    float *A = (float *) calloc(size_batch * layer->size_inputs, sizeof(float));
+    float *B = (float *) calloc(layer->size_inputs * layer->size_neurons, sizeof(float));
+    float *C = (float *) calloc(size_batch * layer->size_neurons, sizeof(float));
 
     
     memcpy(A, layer->activations_input, size_batch * layer->size_inputs * sizeof(float));
@@ -720,9 +721,9 @@ void simd_matmul_backward(Layer * layer, size_t size_batch)
     clock_t begin, end;
     double time_spent;
     begin = clock();
-    float *A = calloc(layer->size_inputs * size_batch, sizeof(float));
-    float *B = calloc(size_batch * layer->size_neurons, sizeof(float));
-    float *C = calloc(layer->size_inputs * layer->size_neurons, sizeof(float));
+    float *A = (float *)calloc(layer->size_inputs * size_batch, sizeof(float));
+    float *B = (float *)calloc(size_batch * layer->size_neurons, sizeof(float));
+    float *C = (float *)calloc(layer->size_inputs * layer->size_neurons, sizeof(float));
 
     // row_to_col_major(layer->activations_input, A, size_batch, layer->size_inputs);
     // col_to_row_major(layer->gradients_output, B, size_batch, layer->size_neurons);
@@ -815,8 +816,12 @@ void read_mnist_images(const char *filename, InputData *data) {
     data->cols = __builtin_bswap32(data->cols);
     printf("rows: %d, cols: %d\n", data->rows, data->cols);
 
-    data->images = malloc(data->nImages * data->rows * data->cols);
-    
+    data->images = (unsigned char *)malloc(data->nImages * data->rows * data->cols);
+    if (!data->images) {
+        perror("Error allocating memory for images");
+        exit(EXIT_FAILURE);
+    }
+
     file_read(data->images, sizeof(unsigned char), data->nImages * data->rows * data->cols, file);
     fclose(file);
 
@@ -833,7 +838,7 @@ void read_mnist_labels(const char *filename, unsigned char **labels, int *nLabel
     file_read(nLabels, sizeof(int), 1, file);
     *nLabels = __builtin_bswap32(*nLabels);
 
-    *labels = malloc((*nLabels) * sizeof(unsigned char));
+    *labels = (unsigned char *)malloc((*nLabels) * sizeof(unsigned char));
     file_read(*labels, sizeof(unsigned char), *nLabels, file);
     fclose(file);
 }
@@ -952,7 +957,7 @@ float generate_kaiming_number(size_t inputs, size_t outputs)
 }
 
 
-void initialize_layer(Layer *layer, float (*generate_number)()){
+void initialize_layer(Layer *layer, float (*generate_number)(size_t, size_t)){
  
     for (size_t i = 0; i < layer->size_inputs * layer->size_neurons; i++)
         layer->weights[i] = generate_number(layer->size_inputs, layer->size_neurons);
@@ -969,8 +974,8 @@ void kaiming_initialize_layer(Layer *layer, size_t inputs, size_t outputs)
     layer->activation_forward = relu_forward;
     layer->activation_backward = relu_backward;
 
-    layer->weights = malloc(inputs * outputs * sizeof(float));
-    layer->biases = malloc(outputs * sizeof(float));
+    layer->weights = (float *)malloc(inputs * outputs * sizeof(float));
+    layer->biases = (float *)malloc(outputs * sizeof(float));
 
     for (size_t i = 0; i < inputs * outputs; i++)
         layer->weights[i] = generate_xavier_number(inputs, outputs);
@@ -987,8 +992,8 @@ void xavier_initialize_layer(Layer *layer, size_t inputs, size_t outputs)
     layer->activation_forward = softmax_forward;
     layer->activation_backward = loss_softmax_backward;
 
-    layer->weights = malloc(inputs * outputs * sizeof(float));
-    layer->biases = malloc(outputs * sizeof(float));
+    layer->weights = (float *)malloc(inputs * outputs * sizeof(float));
+    layer->biases = (float *)malloc(outputs * sizeof(float));
 
     for (size_t i = 0; i < inputs * outputs; i++)
         layer->weights[i] = generate_xavier_number(inputs, outputs);
@@ -1001,16 +1006,16 @@ void xavier_initialize_layer(Layer *layer, size_t inputs, size_t outputs)
 
 void add_layer(Model *model, size_t size_inputs, size_t size_neurons, void(*activation_forward)(Layer *layer, size_t size_batch),
                void(*activation_backward)(Layer *layer, unsigned char *labels, size_t size_batch),
-            float (*generate_number)())
+            float (*generate_number)(size_t, size_t))
 {
-    Layer *layer = calloc(1, sizeof(Layer));
+    Layer *layer = (Layer *)calloc(1, sizeof(Layer));
     layer->size_inputs = size_inputs;
     layer->size_neurons = size_neurons;
     layer->activation_forward = activation_forward;
     layer->activation_backward = activation_backward;
     layer->generate_number = generate_number;
-    
-    model->layers = realloc(model->layers, (model->size_layers + 1) * sizeof(Layer *));
+
+    model->layers = (Layer **)realloc(model->layers, (model->size_layers + 1) * sizeof(Layer *));
     model->layers[model->size_layers] = layer;
     model->size_layers++;
     model->size_parameters += size_inputs * size_neurons + size_neurons;
@@ -1019,7 +1024,7 @@ void add_layer(Model *model, size_t size_inputs, size_t size_neurons, void(*acti
 
 void allocate_parameters_memory(Model *model)
 {
-    float *parameters = calloc(model->size_parameters, sizeof(float));
+    float *parameters = (float *)calloc(model->size_parameters, sizeof(float));
     size_t offset = 0;
     for (size_t i = 0; i < model->size_layers; i++) {
         Layer *layer = model->layers[i];
@@ -1144,7 +1149,7 @@ void initialise_activations(Activations * activations, Model *model, InputData *
     }
     activations->size_activations += data->rows * data->cols;
     activations->size_activations *= data->nImages;
-    activations->activations = calloc(activations->size_activations, sizeof(float));
+    activations->activations = (float *)calloc(activations->size_activations, sizeof(float));
 
     for (size_t idx_pixel = 0; idx_pixel < data->nImages * data->rows * data->cols; idx_pixel++) {
         activations->activations[idx_pixel] = (float)data->images[idx_pixel] / 255.0f;
@@ -1174,8 +1179,8 @@ void initialise_gradients(Gradients * gradients, Model *model, InputData *data)
         // size of gradients for activations
         gradients->size_grads += model->layers[i]->size_neurons * data->nImages;
     }
-    gradients->grads = calloc(gradients->size_grads, sizeof(float));
-    
+    gradients->grads = (float *)calloc(gradients->size_grads, sizeof(float));
+
     // connect gradients to layers
 
     for (size_t idx_layer = 0; idx_layer < model->size_layers; idx_layer++) {
@@ -1198,8 +1203,8 @@ void free_gradients(Gradients * gradients)
 
 void allocate_mini_batch_memory(InputData * mini_batch_data)
 {
-    mini_batch_data->images = calloc(mini_batch_data->nImages * mini_batch_data->rows * mini_batch_data->cols, sizeof(unsigned char));
-    mini_batch_data->labels = calloc(mini_batch_data->nImages, sizeof(unsigned char));
+    mini_batch_data->images = (unsigned char *)calloc(mini_batch_data->nImages * mini_batch_data->rows * mini_batch_data->cols, sizeof(unsigned char));
+    mini_batch_data->labels = (unsigned char *)calloc(mini_batch_data->nImages, sizeof(unsigned char));
 }
 
 void free_mini_batch_memory(InputData * mini_batch_data)
