@@ -1,15 +1,17 @@
 cmake_minimum_required(VERSION 3.10)
 
 # Define the project name and languages
-project(mlp_project C)
-
+project(mlp_project CXX)
+# Set the C++ standard
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
 # Set compile flags for Debug and Release configurations
-set(CMAKE_C_FLAGS_DEBUG "-g -fopenmp -Wall -O2 -mavx -mavx2 -mfma")
-set(CMAKE_C_FLAGS_RELEASE "-fopenmp -Wall -O2 -DNDEBUG -mavx -mavx2 -mfma -march=native")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -fopenmp -Wall -O2 -mavx -mavx2 -mfma")
+set(CMAKE_CXX_FLAGS_RELEASE "-fopenmp -Wall -O2 -DNDEBUG -mavx -mavx2 -mfma -march=native")
 
 # Define the source files
 set(SOURCE_FILES
-    src/mlp.c
+    src/mlp.cpp
 )
 
 
