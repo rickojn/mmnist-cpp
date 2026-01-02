@@ -9,6 +9,7 @@
 #include <immintrin.h>
 #include <stdint.h>
 #include <string>
+#include "../libs/custard-flow/include/CustardFlow.h"
 
 
 #define SIZE_CLASSES 10
@@ -23,7 +24,6 @@
 
 
 
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 
 typedef struct {
@@ -1232,6 +1232,9 @@ void free_model(Model * model){
 
 
 int main() {
+
+    int lesser = cf_min(4, 2);
+    printf("lesser: %d\n", lesser);
     // read input data
     InputData data_training, data_test, data_mini_batch = {0};
 
